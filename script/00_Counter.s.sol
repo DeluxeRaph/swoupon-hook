@@ -27,7 +27,7 @@ contract CounterScript is Script, Constants {
 
         // Deploy the hook using CREATE2
         vm.broadcast();
-        Counter counter = new Counter{salt: salt}(IPoolManager(POOLMANAGER));
+        Counter counter = new Counter{salt: salt}(IPoolManager(POOLMANAGER), "Counter", "CTR");
         require(address(counter) == hookAddress, "CounterScript: hook address mismatch");
     }
 }

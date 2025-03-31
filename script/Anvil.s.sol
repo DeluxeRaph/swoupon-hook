@@ -55,7 +55,7 @@ contract CounterScript is Script, DeployPermit2 {
         // Deploy the hook using CREATE2 //
         // ----------------------------- //
         vm.broadcast();
-        Counter counter = new Counter{salt: salt}(manager);
+        Counter counter = new Counter{salt: salt}(manager, "Counter", "CTR");
         require(address(counter) == hookAddress, "CounterScript: hook address mismatch");
 
         // Additional helpers for interacting with the pool
