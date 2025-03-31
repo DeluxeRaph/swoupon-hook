@@ -19,6 +19,8 @@ import {IPositionManager} from "v4-periphery/src/interfaces/IPositionManager.sol
 import {EasyPosm} from "./utils/EasyPosm.sol";
 import {Fixtures} from "./utils/Fixtures.sol";
 
+import {MockERC20} from "solmate/src/test/utils/mocks/MockERC20.sol";
+
 contract CounterTest is Test, Fixtures {
     using EasyPosm for IPositionManager;
     using PoolIdLibrary for PoolKey;
@@ -32,66 +34,152 @@ contract CounterTest is Test, Fixtures {
     int24 tickLower;
     int24 tickUpper;
 
+    MockERC20 token0;
+	MockERC20 token1;
+    address swapper;
+
     function setUp() public {
-        // creates the pool manager, utility routers, and test tokens
-        deployFreshManagerAndRouters();
-        deployMintAndApprove2Currencies();
+        // // creates the pool manager, utility routers, and test tokens
+        // deployFreshManagerAndRouters();
+        // deployMintAndApprove2Currencies();
 
-        deployAndApprovePosm(manager);
+        // deployAndApprovePosm(manager);
 
-        // Deploy the hook to an address with the correct flags
-        address flags = address(
-            uint160(Hooks.AFTER_INITIALIZE_FLAG | Hooks.BEFORE_SWAP_FLAG | Hooks.AFTER_SWAP_FLAG) ^ (0x4444 << 144) // Namespace the hook to avoid collisions
-        );
+        // //  // Deploy our TOKEN contract
+        // // token = new MockERC20("Test Token", "TEST", 18);
+        // // tokenCurrency = Currency.wrap(address(token));
 
-        bytes memory constructorArgs = abi.encode(manager, "Counter", "CTR"); //Add all the necessary constructor arguments from the hook
-        deployCodeTo("Counter.sol:Counter", constructorArgs, flags);
-        hook = Counter(flags);
+        // // Deploy the hook to an address with the correct flags
+        // address flags = address(
+        //     uint160(Hooks.AFTER_INITIALIZE_FLAG | Hooks.BEFORE_SWAP_FLAG | Hooks.AFTER_SWAP_FLAG) ^ (0x4444 << 144) // Namespace the hook to avoid collisions
+        // );
 
-        // Create the pool
-        key = PoolKey(currency0, currency1, 3000, 60, IHooks(hook));
-        poolId = key.toId();
-        manager.initialize(key, SQRT_PRICE_1_1);
+        // bytes memory constructorArgs = abi.encode(manager, "Counter", "CTR"); //Add all the necessary constructor arguments from the hook
+        // deployCodeTo("Counter.sol:Counter", constructorArgs, flags);
+        // hook = Counter(flags);
 
-        // Provide full-range liquidity to the pool
-        tickLower = TickMath.minUsableTick(key.tickSpacing);
-        tickUpper = TickMath.maxUsableTick(key.tickSpacing);
+        // // Create the pool
+        // key = PoolKey(currency0, currency1, 3000, 60, IHooks(hook));
+        // poolId = key.toId();
+        // manager.initialize(key, SQRT_PRICE_1_1);
 
-        uint128 liquidityAmount = 100e18;
+        // // Provide full-range liquidity to the pool
+        // tickLower = TickMath.minUsableTick(key.tickSpacing);
+        // tickUpper = TickMath.maxUsableTick(key.tickSpacing);
 
-        (uint256 amount0Expected, uint256 amount1Expected) = LiquidityAmounts.getAmountsForLiquidity(
-            SQRT_PRICE_1_1,
-            TickMath.getSqrtPriceAtTick(tickLower),
-            TickMath.getSqrtPriceAtTick(tickUpper),
-            liquidityAmount
-        );
+        // uint128 liquidityAmount = 100e18;
 
-        (tokenId,) = posm.mint(
-            key,
-            tickLower,
-            tickUpper,
-            liquidityAmount,
-            amount0Expected + 1,
-            amount1Expected + 1,
-            address(this),
-            block.timestamp,
-            ZERO_BYTES
-        );
+        // (uint256 amount0Expected, uint256 amount1Expected) = LiquidityAmounts.getAmountsForLiquidity(
+        //     SQRT_PRICE_1_1,
+        //     TickMath.getSqrtPriceAtTick(tickLower),
+        //     TickMath.getSqrtPriceAtTick(tickUpper),
+        //     liquidityAmount
+        // );
+
+        // (tokenId,) = posm.mint(
+        //     key,
+        //     tickLower,
+        //     tickUpper,
+        //     liquidityAmount,
+        //     amount0Expected + 1,
+        //     amount1Expected + 1,
+        //     address(this),
+        //     block.timestamp,
+        //     ZERO_BYTES
+        // );
+
+    deployFreshManagerAndRouters();
+
+    swapper = address(0x123);
+
+    // Deploy our TOKEN contract
+    token0 = new MockERC20("Test Token 0", "TEST0", 18);
+    token1 = new MockERC20("Test Token 1", "TEST1", 18);
+    
+    Currency tokenCurrency0 = Currency.wrap(address(token0));
+    Currency tokenCurrency1 = Currency.wrap(address(token1));
+
+    // Mint a bunch of TOKEN to ourselves
+    token0.mint(swapper, 1000 ether);
+    token1.mint(swapper, 1000 ether);
+
+    // Deploy hook to an address that has the proper flags set
+    uint160 flags = uint160(Hooks.AFTER_INITIALIZE_FLAG | Hooks.BEFORE_SWAP_FLAG | Hooks.AFTER_SWAP_FLAG);
+
+    deployCodeTo(
+        "Counter.sol",
+        abi.encode(manager, "Counter", "CTR"),
+        address(flags)
+    );
+
+        // Deploy our hook
+        hook = Counter(address(flags));
+
+        // Approve our TOKEN for spending on the swap router and modify liquidity router
+        // These variables are coming from the `Deployers` contract
+        vm.startPrank(swapper);
+        // token0.approve(address(this), type(uint256).max);
+        // token1.approve(address(this), type(uint256).max);
+        token0.approve(address(swapRouter), type(uint256).max);
+        token1.approve(address(swapRouter), type(uint256).max);
+        token0.approve(address(modifyLiquidityRouter), type(uint256).max);
+        token1.approve(address(modifyLiquidityRouter), type(uint256).max);
+        vm.stopPrank();
+
+    // Initialize a pool
+    (key, ) = initPool(
+        tokenCurrency0, // Currency 0 = ETH
+        tokenCurrency1, // Currency 1 = TOKEN
+        hook, // Hook Contract
+        3000, // Swap Fees
+        SQRT_PRICE_1_1 // Initial Sqrt(P) value = 1
+    );
     }
 
     function test_swap() public {
         // Set user address in hook data
-        bytes memory hookData = abi.encode(address(this));
+        // Set user address in hook data
+            bytes memory hookData = abi.encode(swapper);
 
-        swapRouter.swap(
-            key,
-            IPoolManager.SwapParams({
-                zeroForOne: true,
-                amountSpecified: -0.001 ether, // Exact input for output swap
-                sqrtPriceLimitX96: TickMath.MIN_SQRT_PRICE + 1
-            }),
-            PoolSwapTest.TestSettings({takeClaims: false, settleUsingBurn: false}),
-            hookData
-        );
+
+    uint160 sqrtPriceAtTickLower = TickMath.getSqrtPriceAtTick(-60);
+    uint160 sqrtPriceAtTickUpper = TickMath.getSqrtPriceAtTick(60);
+
+    uint256 token0ToAdd = 1 ether;
+
+    uint128 liquidityDelta = LiquidityAmounts.getLiquidityForAmount0(
+        sqrtPriceAtTickLower,
+        SQRT_PRICE_1_1,
+        token0ToAdd
+    );
+    vm.startPrank(swapper);
+    modifyLiquidityRouter.modifyLiquidity(
+        key,
+        IPoolManager.ModifyLiquidityParams({
+            tickLower: -60,
+            tickUpper: 60,
+            liquidityDelta: int256(uint256(liquidityDelta)),
+            salt: bytes32(0)
+        }),
+        hookData
+    );
+
+        // uint256 tokenBalanceOriginal = hook.balanceOf(swapper);
+        // assertEq(tokenBalanceOriginal, 0);
+
+        // swapRouter.swap{value: 2 ether}(
+        //     key,
+        //     IPoolManager.SwapParams({
+        //         zeroForOne: true,
+        //         amountSpecified: -2 ether, // Exact input for output swap
+        //         sqrtPriceLimitX96: TickMath.MIN_SQRT_PRICE + 1
+        //     }),
+        //     PoolSwapTest.TestSettings({takeClaims: false, settleUsingBurn: false}),
+        //     hookData
+        // );
+
+        // uint256 tokenBalanceAfterSwap = hook.balanceOf(swapper);
+        // assertEq(tokenBalanceAfterSwap, 1 ether);
+        vm.stopPrank();
     }
 }
