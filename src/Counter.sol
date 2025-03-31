@@ -12,23 +12,21 @@ import {BeforeSwapDelta, BeforeSwapDeltaLibrary} from "v4-core/src/types/BeforeS
 import {ERC20} from "solmate/src/tokens/ERC20.sol";
 import {LPFeeLibrary} from "v4-core/src/libraries/LPFeeLibrary.sol";
 
-
-contract Counter is BaseHook, ERC20{
+contract Counter is BaseHook, ERC20 {
     using PoolIdLibrary for PoolKey;
     using LPFeeLibrary for uint24;
 
     error NotDynamicFee();
-    constructor(
-        IPoolManager _poolManager, 
-        string memory _name, 
-        string memory _symbol) 
-        BaseHook(_poolManager) 
-        ERC20(_name, _symbol, 18) {}
+
+    constructor(IPoolManager _poolManager, string memory _name, string memory _symbol)
+        BaseHook(_poolManager)
+        ERC20(_name, _symbol, 18)
+    {}
 
     function getHookPermissions() public pure override returns (Hooks.Permissions memory) {
         return Hooks.Permissions({
-            beforeInitialize: true,
-            afterInitialize: false,
+            beforeInitialize: false,
+            afterInitialize: true,
             beforeAddLiquidity: false,
             afterAddLiquidity: false,
             beforeRemoveLiquidity: false,
@@ -54,26 +52,35 @@ contract Counter is BaseHook, ERC20{
         override
         returns (bytes4)
     {
-        if (!key.fee.isDynamicFee()) revert NotDynamicFee();
+        // if (!key.fee.isDynamicFee()) revert NotDynamicFee();
         return this.afterInitialize.selector;
     }
-
 
     function _beforeSwap(address, PoolKey calldata key, IPoolManager.SwapParams calldata, bytes calldata)
         internal
         override
         returns (bytes4, BeforeSwapDelta, uint24)
     {
-       
         return (BaseHook.beforeSwap.selector, BeforeSwapDeltaLibrary.ZERO_DELTA, 0);
     }
 
-    function _afterSwap(address sender, PoolKey calldata key, IPoolManager.SwapParams calldata, BalanceDelta, bytes calldata)
-        internal
-        override
-        returns (bytes4, int128)
-    {
-       _mint(sender, 1 ether); 
+    function _afterSwap(
+        address sender,
+        PoolKey calldata key,
+        IPoolManager.SwapParams calldata,
+        BalanceDelta,
+        bytes calldata
+    ) internal override returns (bytes4, int128) {
+        _mint(sender, 1 ether);
         return (BaseHook.afterSwap.selector, 0);
+    }
+
+    function _getFee(
+        address sender,
+        PoolKey calldata key,
+        IPoolManager.SwapParams calldata params,
+        bytes calldata hookData
+    ) internal virtual returns (uint24){
+
     }
 }
