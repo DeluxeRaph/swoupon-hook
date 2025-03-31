@@ -42,11 +42,11 @@ contract CounterTest is Test, Fixtures {
         // Deploy the hook to an address with the correct flags
         address flags = address(
             uint160(
-                Hooks.BEFORE_SWAP_FLAG | Hooks.AFTER_SWAP_FLAG | Hooks.BEFORE_ADD_LIQUIDITY_FLAG
-                    | Hooks.BEFORE_REMOVE_LIQUIDITY_FLAG
+                Hooks.BEFORE_SWAP_FLAG | Hooks.AFTER_SWAP_FLAG
             ) ^ (0x4444 << 144) // Namespace the hook to avoid collisions
         );
-        bytes memory constructorArgs = abi.encode(manager); //Add all the necessary constructor arguments from the hook
+
+        bytes memory constructorArgs = abi.encode(manager, "Counter", "CTR"); //Add all the necessary constructor arguments from the hook
         deployCodeTo("Counter.sol:Counter", constructorArgs, flags);
         hook = Counter(flags);
 
@@ -81,5 +81,22 @@ contract CounterTest is Test, Fixtures {
         );
     }
 
-    
+    function test_swap() public {
+        // Set user address in hook data
+        bytes memory hookData = abi.encode(address(this));
+
+        swapRouter.swap{value: 0.001 ether}(
+            key,
+            IPoolManager.SwapParams({
+                zeroForOne: true,
+                amountSpecified: -0.001 ether, // Exact input for output swap
+                sqrtPriceLimitX96: TickMath.MIN_SQRT_PRICE + 1
+            }),
+            PoolSwapTest.TestSettings({
+                takeClaims: false,
+                settleUsingBurn: false
+            }),
+            hookData
+        );
+    }
 }

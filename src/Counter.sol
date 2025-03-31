@@ -16,6 +16,8 @@ import {LPFeeLibrary} from "v4-core/src/libraries/LPFeeLibrary.sol";
 contract Counter is BaseHook, ERC20{
     using PoolIdLibrary for PoolKey;
     using LPFeeLibrary for uint24;
+
+    error NotDynamicFee();
     constructor(
         IPoolManager _poolManager, 
         string memory _name, 
@@ -45,6 +47,17 @@ contract Counter is BaseHook, ERC20{
     // -----------------------------------------------
     // NOTE: see IHooks.sol for function documentation
     // -----------------------------------------------
+
+    function _afterInitialize(address, PoolKey calldata key, uint160, int24)
+        internal
+        virtual
+        override
+        returns (bytes4)
+    {
+        if (!key.fee.isDynamicFee()) revert NotDynamicFee();
+        return this.afterInitialize.selector;
+    }
+
 
     function _beforeSwap(address, PoolKey calldata key, IPoolManager.SwapParams calldata, bytes calldata)
         internal
