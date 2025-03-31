@@ -19,6 +19,8 @@ import {IPositionManager} from "v4-periphery/src/interfaces/IPositionManager.sol
 import {EasyPosm} from "./utils/EasyPosm.sol";
 import {Fixtures} from "./utils/Fixtures.sol";
 
+import {console2} from "forge-std/console2.sol";
+
 import {MockERC20} from "solmate/src/test/utils/mocks/MockERC20.sol";
 
 contract CounterTest is Test, Fixtures {
@@ -139,47 +141,50 @@ contract CounterTest is Test, Fixtures {
     function test_swap() public {
         // Set user address in hook data
         // Set user address in hook data
-            bytes memory hookData = abi.encode(swapper);
+        console2.log("total supply CTR", hook.totalSupply());
+        bytes memory hookData = abi.encode(swapper);
 
 
-    uint160 sqrtPriceAtTickLower = TickMath.getSqrtPriceAtTick(-60);
-    uint160 sqrtPriceAtTickUpper = TickMath.getSqrtPriceAtTick(60);
+        uint160 sqrtPriceAtTickLower = TickMath.getSqrtPriceAtTick(-60);
+        uint160 sqrtPriceAtTickUpper = TickMath.getSqrtPriceAtTick(60);
 
-    uint256 token0ToAdd = 1 ether;
+        uint256 token0ToAdd = 1 ether;
 
-    uint128 liquidityDelta = LiquidityAmounts.getLiquidityForAmount0(
-        sqrtPriceAtTickLower,
-        SQRT_PRICE_1_1,
-        token0ToAdd
-    );
-    vm.startPrank(swapper);
-    modifyLiquidityRouter.modifyLiquidity(
-        key,
-        IPoolManager.ModifyLiquidityParams({
-            tickLower: -60,
-            tickUpper: 60,
-            liquidityDelta: int256(uint256(liquidityDelta)),
-            salt: bytes32(0)
-        }),
-        hookData
-    );
+        uint128 liquidityDelta = LiquidityAmounts.getLiquidityForAmount0(
+            sqrtPriceAtTickLower,
+            SQRT_PRICE_1_1,
+            token0ToAdd
+        );
+        vm.startPrank(swapper);
+        modifyLiquidityRouter.modifyLiquidity(
+            key,
+            IPoolManager.ModifyLiquidityParams({
+                tickLower: -60,
+                tickUpper: 60,
+                liquidityDelta: int256(uint256(liquidityDelta)),
+                salt: bytes32(0)
+            }),
+            hookData
+        );
 
-        // uint256 tokenBalanceOriginal = hook.balanceOf(swapper);
-        // assertEq(tokenBalanceOriginal, 0);
+        uint256 tokenBalanceOriginal = hook.balanceOf(swapper);
+        assertEq(tokenBalanceOriginal, 0);
 
-        // swapRouter.swap{value: 2 ether}(
-        //     key,
-        //     IPoolManager.SwapParams({
-        //         zeroForOne: true,
-        //         amountSpecified: -2 ether, // Exact input for output swap
-        //         sqrtPriceLimitX96: TickMath.MIN_SQRT_PRICE + 1
-        //     }),
-        //     PoolSwapTest.TestSettings({takeClaims: false, settleUsingBurn: false}),
-        //     hookData
-        // );
+        swapRouter.swap(
+            key,
+            IPoolManager.SwapParams({
+                zeroForOne: true,
+                amountSpecified: -2 ether, // Exact input for output swap
+                sqrtPriceLimitX96: TickMath.MIN_SQRT_PRICE + 1
+            }),
+            PoolSwapTest.TestSettings({takeClaims: false, settleUsingBurn: false}),
+            hookData
+        );
 
-        // uint256 tokenBalanceAfterSwap = hook.balanceOf(swapper);
-        // assertEq(tokenBalanceAfterSwap, 1 ether);
+        uint256 tokenBalanceAfterSwap = hook.balanceOf(swapper);
+        assertEq(tokenBalanceAfterSwap, 1 ether);
         vm.stopPrank();
+
+        console2.log("total supply CTR", hook.totalSupply());
     }
 }

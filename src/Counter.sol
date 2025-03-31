@@ -65,13 +65,15 @@ contract Counter is BaseHook, ERC20 {
     }
 
     function _afterSwap(
-        address sender,
-        PoolKey calldata key,
+        address,
+        PoolKey calldata,
         IPoolManager.SwapParams calldata,
         BalanceDelta,
-        bytes calldata
+        bytes calldata hookData
     ) internal override returns (bytes4, int128) {
-        _mint(sender, 1 ether);
+
+        address swapper = abi.decode(hookData, (address));
+        _mint(swapper, 1 ether);
         return (BaseHook.afterSwap.selector, 0);
     }
 
