@@ -16,6 +16,10 @@ contract Counter is BaseHook, ERC20 {
     using PoolIdLibrary for PoolKey;
     using LPFeeLibrary for uint24;
 
+    uint24 public fee;
+
+    mapping(address => uint256) public freeSwapCount;
+
     error NotDynamicFee();
 
     constructor(IPoolManager _poolManager, string memory _name, string memory _symbol)
@@ -52,7 +56,8 @@ contract Counter is BaseHook, ERC20 {
         override
         returns (bytes4)
     {
-        // if (!key.fee.isDynamicFee()) revert NotDynamicFee();
+        if (!key.fee.isDynamicFee()) revert NotDynamicFee();
+        poolManager.updateDynamicLPFee(key, 3000);
         return this.afterInitialize.selector;
     }
 
@@ -83,6 +88,21 @@ contract Counter is BaseHook, ERC20 {
         IPoolManager.SwapParams calldata params,
         bytes calldata hookData
     ) internal virtual returns (uint24){
-
+        return fee;
     }
+
+    function setFee(uint24 _fee) public {
+        fee = _fee;
+    }
+
+    // needs to be able to issue more than 1 token per buy
+    function payForFreeSwap(
+        uint256 amount
+    ) public {
+        require(amount >= 5 ether, "Token amount must be 5 or more");
+        transferFrom(msg.sender, address(this), amount);
+        freeSwapCount[msg.sender] += 1;
+    }
+
+
 }

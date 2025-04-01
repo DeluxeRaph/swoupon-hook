@@ -18,6 +18,7 @@ import {LiquidityAmounts} from "v4-core/test/utils/LiquidityAmounts.sol";
 import {IPositionManager} from "v4-periphery/src/interfaces/IPositionManager.sol";
 import {EasyPosm} from "./utils/EasyPosm.sol";
 import {Fixtures} from "./utils/Fixtures.sol";
+import {LPFeeLibrary} from "v4-core/src/libraries/LPFeeLibrary.sol";
 
 import {console2} from "forge-std/console2.sol";
 
@@ -133,22 +134,12 @@ contract CounterTest is Test, Fixtures {
         tokenCurrency0, // Currency 0 = ETH
         tokenCurrency1, // Currency 1 = TOKEN
         hook, // Hook Contract
-        3000, // Swap Fees
+        LPFeeLibrary.DYNAMIC_FEE_FLAG, // Swap Fees
         SQRT_PRICE_1_1 // Initial Sqrt(P) value = 1
     );
-    }
-
-    function test_swap() public {
-        // Set user address in hook data
-        // Set user address in hook data
-        console2.log("total supply CTR", hook.totalSupply());
-        bytes memory hookData = abi.encode(swapper);
-
-
-        uint160 sqrtPriceAtTickLower = TickMath.getSqrtPriceAtTick(-60);
-        uint160 sqrtPriceAtTickUpper = TickMath.getSqrtPriceAtTick(60);
-
-        uint256 token0ToAdd = 1 ether;
+    bytes memory hookData = abi.encode(swapper);
+     uint160 sqrtPriceAtTickLower = TickMath.getSqrtPriceAtTick(-60);
+     uint256 token0ToAdd = 1 ether;
 
         uint128 liquidityDelta = LiquidityAmounts.getLiquidityForAmount0(
             sqrtPriceAtTickLower,
@@ -166,6 +157,11 @@ contract CounterTest is Test, Fixtures {
             }),
             hookData
         );
+    }
+
+    function test_swap_mint_token() public {
+        console2.log("total supply CTR", hook.totalSupply());
+        bytes memory hookData = abi.encode(swapper);
 
         uint256 tokenBalanceOriginal = hook.balanceOf(swapper);
         assertEq(tokenBalanceOriginal, 0);
@@ -187,4 +183,6 @@ contract CounterTest is Test, Fixtures {
 
         console2.log("total supply CTR", hook.totalSupply());
     }
+
+
 }
