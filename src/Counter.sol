@@ -17,6 +17,7 @@ contract Counter is BaseHook, ERC20 {
     using LPFeeLibrary for uint24;
 
     uint24 public fee;
+    uint24 public constant BASE_FEE = 3000; // 0.03%
 
     mapping(address => uint256) public freeSwapCount;
 
@@ -57,15 +58,15 @@ contract Counter is BaseHook, ERC20 {
         returns (bytes4)
     {
         if (!key.fee.isDynamicFee()) revert NotDynamicFee();
-        poolManager.updateDynamicLPFee(key, 3000);
         return this.afterInitialize.selector;
     }
 
-    function _beforeSwap(address, PoolKey calldata key, IPoolManager.SwapParams calldata, bytes calldata)
+    function _beforeSwap(address, PoolKey calldata key, IPoolManager.SwapParams calldata, bytes calldata hookData)
         internal
         override
         returns (bytes4, BeforeSwapDelta, uint24)
     {
+        poolManager.updateDynamicLPFee(key, _getFee(hookData)); // this where I need to pull the fee from the deposit
         return (BaseHook.beforeSwap.selector, BeforeSwapDeltaLibrary.ZERO_DELTA, 0);
     }
 
@@ -76,22 +77,25 @@ contract Counter is BaseHook, ERC20 {
         BalanceDelta,
         bytes calldata hookData
     ) internal override returns (bytes4, int128) {
-
+    // mints 1 token per swap
         address swapper = abi.decode(hookData, (address));
         _mint(swapper, 1 ether);
         return (BaseHook.afterSwap.selector, 0);
     }
-
+    // checks if swapper has free swaps left
     function _getFee(
-        address sender,
-        PoolKey calldata key,
-        IPoolManager.SwapParams calldata params,
         bytes calldata hookData
     ) internal virtual returns (uint24){
-        return fee;
+        address swapper = abi.decode(hookData, (address));
+
+        if (freeSwapCount[swapper] > 0) {
+            freeSwapCount[swapper] -= 1;
+            _setFee(0);
+        }
+        return BASE_FEE;
     }
 
-    function setFee(uint24 _fee) public {
+    function _setFee(uint24 _fee) internal {
         fee = _fee;
     }
 
