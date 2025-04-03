@@ -127,6 +127,8 @@ contract CounterTest is Test, Fixtures {
         token1.approve(address(swapRouter), type(uint256).max);
         token0.approve(address(modifyLiquidityRouter), type(uint256).max);
         token1.approve(address(modifyLiquidityRouter), type(uint256).max);
+        token0.approve(address(hook), type(uint256).max);
+        token1.approve(address(hook), type(uint256).max);
         vm.stopPrank();
 
     // Initialize a pool
@@ -159,13 +161,15 @@ contract CounterTest is Test, Fixtures {
         );
     }
 
-    function test_swap_mint_token() public {
-        console2.log("total supply CTR", hook.totalSupply());
+    function test_swap_mint_token_and_pay_for_free_swap() public {
         bytes memory hookData = abi.encode(swapper);
 
         uint256 tokenBalanceOriginal = hook.balanceOf(swapper);
-        assertEq(tokenBalanceOriginal, 0);
+        uint24 currentFee = hook.getFee();
 
+        assertEq(tokenBalanceOriginal, 0);
+        assertEq(currentFee, 0);
+        
         swapRouter.swap(
             key,
             IPoolManager.SwapParams({
@@ -179,10 +183,36 @@ contract CounterTest is Test, Fixtures {
 
         uint256 tokenBalanceAfterSwap = hook.balanceOf(swapper);
         assertEq(tokenBalanceAfterSwap, 1 ether);
+
+        uint256 tokenBalanceBeforePay = hook.balanceOf(address(hook));
+        console.log("tokenBalanceBeforePay", tokenBalanceBeforePay);
+
+        vm.startPrank(swapper);
+        hook.approve(address(hook), type(uint256).max);
+        hook.payForFreeSwap(1 ether);
         vm.stopPrank();
 
-        console2.log("total supply CTR", hook.totalSupply());
+        //check if use has a free swap left
+        assertEq(hook.freeSwapCount(swapper), 1);
+
+        // swapRouter.swap(
+        //     key,
+        //     IPoolManager.SwapParams({
+        //         zeroForOne: true,
+        //         amountSpecified: -2 ether, // Exact input for output swap
+        //         sqrtPriceLimitX96: TickMath.MIN_SQRT_PRICE + 1
+        //     }),
+        //     PoolSwapTest.TestSettings({takeClaims: false, settleUsingBurn: false}),
+        //     hookData
+        // );
+        uint24 feeAfterPay = hook.getFee();
+        // assertEq(feeAfterPay, 0);
+
+       
+        assertEq(tokenBalanceAfterSwap, 2 ether);
     }
+
+    
 
 
 }

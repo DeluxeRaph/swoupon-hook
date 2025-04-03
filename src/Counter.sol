@@ -103,9 +103,14 @@ contract Counter is BaseHook, ERC20 {
     function payForFreeSwap(
         uint256 amount
     ) public {
-        require(amount >= 5 ether, "Token amount must be 5 or more");
+        require(balanceOf[msg.sender] >= amount, "Insufficient balance");
+        require(amount >= 1 ether, "Token amount must be 1 or more");
         transferFrom(msg.sender, address(this), amount);
         freeSwapCount[msg.sender] += 1;
+    }
+
+    function getFee() public view returns (uint24) {
+        return fee;
     }
 
 
