@@ -16,7 +16,7 @@ contract Swoupon is BaseHook, ERC20 {
     using PoolIdLibrary for PoolKey;
     using LPFeeLibrary for uint24;
 
-    uint24 public fee;
+    uint24 public fee = 3000;
     uint24 public constant BASE_FEE = 3000; // 0.03%
 
     mapping(address => uint256) public freeSwapCount;
@@ -91,8 +91,10 @@ contract Swoupon is BaseHook, ERC20 {
         if (freeSwapCount[swapper] > 0) {
             freeSwapCount[swapper] -= 1;
             _setFee(0);
+        } else {
+            _setFee(BASE_FEE);
         }
-        return BASE_FEE;
+        return fee;
     }
 
     function _setFee(uint24 _fee) internal {
@@ -105,7 +107,7 @@ contract Swoupon is BaseHook, ERC20 {
     ) public {
         require(balanceOf[msg.sender] >= amount, "Insufficient balance");
         require(amount >= 1 ether, "Token amount must be 1 or more");
-        transferFrom(msg.sender, address(this), amount);
+        transfer(address(this), amount);
         freeSwapCount[msg.sender] += 1;
     }
 

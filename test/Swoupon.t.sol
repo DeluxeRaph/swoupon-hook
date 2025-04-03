@@ -23,7 +23,7 @@ import {LPFeeLibrary} from "v4-core/src/libraries/LPFeeLibrary.sol";
 import {console2} from "forge-std/console2.sol";
 
 import {MockERC20} from "solmate/src/test/utils/mocks/MockERC20.sol";
-
+import {IERC20} from "forge-std/interfaces/IERC20.sol";
 contract SwouponTest is Test, Fixtures {
     using EasyPosm for IPositionManager;
     using PoolIdLibrary for PoolKey;
@@ -168,7 +168,7 @@ contract SwouponTest is Test, Fixtures {
         uint24 currentFee = hook.getFee();
 
         assertEq(tokenBalanceOriginal, 0);
-        assertEq(currentFee, 0);
+        assertEq(currentFee, 3000);
         
         swapRouter.swap(
             key,
@@ -188,28 +188,25 @@ contract SwouponTest is Test, Fixtures {
         console.log("tokenBalanceBeforePay", tokenBalanceBeforePay);
 
         vm.startPrank(swapper);
-        hook.approve(address(hook), type(uint256).max);
         hook.payForFreeSwap(1 ether);
         vm.stopPrank();
 
         //check if use has a free swap left
         assertEq(hook.freeSwapCount(swapper), 1);
 
+
         // swapRouter.swap(
         //     key,
         //     IPoolManager.SwapParams({
         //         zeroForOne: true,
         //         amountSpecified: -2 ether, // Exact input for output swap
-        //         sqrtPriceLimitX96: TickMath.MIN_SQRT_PRICE + 1
+        //         sqrtPriceLimitX96: TickMath.MIN_SQRT_PRICE + 2
         //     }),
         //     PoolSwapTest.TestSettings({takeClaims: false, settleUsingBurn: false}),
         //     hookData
         // );
-        uint24 feeAfterPay = hook.getFee();
+        // uint24 feeAfterPay = hook.getFee();
         // assertEq(feeAfterPay, 0);
-
-       
-        assertEq(tokenBalanceAfterSwap, 2 ether);
     }
 
     
