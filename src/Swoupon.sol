@@ -12,7 +12,7 @@ import {BeforeSwapDelta, BeforeSwapDeltaLibrary} from "v4-core/src/types/BeforeS
 import {ERC20} from "solmate/src/tokens/ERC20.sol";
 import {LPFeeLibrary} from "v4-core/src/libraries/LPFeeLibrary.sol";
 
-contract Counter is BaseHook, ERC20 {
+contract Swoupon is BaseHook, ERC20 {
     using PoolIdLibrary for PoolKey;
     using LPFeeLibrary for uint24;
 

@@ -11,7 +11,7 @@ import {BalanceDelta} from "v4-core/src/types/BalanceDelta.sol";
 import {PoolId, PoolIdLibrary} from "v4-core/src/types/PoolId.sol";
 import {CurrencyLibrary, Currency} from "v4-core/src/types/Currency.sol";
 import {PoolSwapTest} from "v4-core/src/test/PoolSwapTest.sol";
-import {Counter} from "../src/Counter.sol";
+import {Swoupon} from "../src/Swoupon.sol";
 import {StateLibrary} from "v4-core/src/libraries/StateLibrary.sol";
 
 import {LiquidityAmounts} from "v4-core/test/utils/LiquidityAmounts.sol";
@@ -24,13 +24,13 @@ import {console2} from "forge-std/console2.sol";
 
 import {MockERC20} from "solmate/src/test/utils/mocks/MockERC20.sol";
 
-contract CounterTest is Test, Fixtures {
+contract SwouponTest is Test, Fixtures {
     using EasyPosm for IPositionManager;
     using PoolIdLibrary for PoolKey;
     using CurrencyLibrary for Currency;
     using StateLibrary for IPoolManager;
 
-    Counter hook;
+    Swoupon hook;
     PoolId poolId;
 
     uint256 tokenId;
@@ -110,13 +110,13 @@ contract CounterTest is Test, Fixtures {
     uint160 flags = uint160(Hooks.AFTER_INITIALIZE_FLAG | Hooks.BEFORE_SWAP_FLAG | Hooks.AFTER_SWAP_FLAG);
 
     deployCodeTo(
-        "Counter.sol",
-        abi.encode(manager, "Counter", "CTR"),
+        "Swoupon.sol",
+        abi.encode(manager, "Swoupon", "SWP"),
         address(flags)
     );
 
         // Deploy our hook
-        hook = Counter(address(flags));
+        hook = Swoupon(address(flags));
 
         // Approve our TOKEN for spending on the swap router and modify liquidity router
         // These variables are coming from the `Deployers` contract
