@@ -175,7 +175,7 @@ contract SwouponTest is Test, Fixtures {
             IPoolManager.SwapParams({
                 zeroForOne: true,
                 amountSpecified: -2 ether, // Exact input for output swap
-                sqrtPriceLimitX96: TickMath.MIN_SQRT_PRICE + 1
+                sqrtPriceLimitX96: TickMath.getSqrtPriceAtTick(-60) // @note sure about this but ai said so
             }),
             PoolSwapTest.TestSettings({takeClaims: false, settleUsingBurn: false}),
             hookData
@@ -191,22 +191,25 @@ contract SwouponTest is Test, Fixtures {
         hook.payForFreeSwap(1 ether);
         vm.stopPrank();
 
-        //check if use has a free swap left
+        //check if userhas a free swap left
         assertEq(hook.freeSwapCount(swapper), 1);
 
 
-        // swapRouter.swap(
-        //     key,
-        //     IPoolManager.SwapParams({
-        //         zeroForOne: true,
-        //         amountSpecified: -2 ether, // Exact input for output swap
-        //         sqrtPriceLimitX96: TickMath.MIN_SQRT_PRICE + 2
-        //     }),
-        //     PoolSwapTest.TestSettings({takeClaims: false, settleUsingBurn: false}),
-        //     hookData
-        // );
-        // uint24 feeAfterPay = hook.getFee();
-        // assertEq(feeAfterPay, 0);
+        swapRouter.swap(
+            key,
+            IPoolManager.SwapParams({
+                zeroForOne: true,
+                amountSpecified: -2 ether, // Exact input for output swap
+                sqrtPriceLimitX96: TickMath.MIN_SQRT_PRICE + 1
+            }),
+            PoolSwapTest.TestSettings({takeClaims: false, settleUsingBurn: false}),
+            hookData
+        );
+        uint24 feeAfterPay = hook.getFee();
+        assertEq(feeAfterPay, 0);
+
+        uint256 tokenBalanceAfterPay = hook.balanceOf(swapper);
+        assertEq(tokenBalanceAfterPay, 0);
     }
 
     

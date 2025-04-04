@@ -11,7 +11,7 @@ import {BalanceDelta} from "v4-core/src/types/BalanceDelta.sol";
 import {BeforeSwapDelta, BeforeSwapDeltaLibrary} from "v4-core/src/types/BeforeSwapDelta.sol";
 import {ERC20} from "solmate/src/tokens/ERC20.sol";
 import {LPFeeLibrary} from "v4-core/src/libraries/LPFeeLibrary.sol";
-
+import {BalanceDeltaLibrary} from "v4-core/src/types/BalanceDelta.sol";
 contract Swoupon is BaseHook, ERC20 {
     using PoolIdLibrary for PoolKey;
     using LPFeeLibrary for uint24;
@@ -65,23 +65,49 @@ contract Swoupon is BaseHook, ERC20 {
         internal
         override
         returns (bytes4, BeforeSwapDelta, uint24)
-    {
-        poolManager.updateDynamicLPFee(key, _getFee(hookData)); // this where I need to pull the fee from the deposit
-        return (BaseHook.beforeSwap.selector, BeforeSwapDeltaLibrary.ZERO_DELTA, 0);
+    { // we need to pull the amount of tokens a user will be paying in fees
+        fee = _getFee(hookData);
+        poolManager.updateDynamicLPFee(key, fee); // this where I need to pull the fee from the deposit
+        return (BaseHook.beforeSwap.selector, BeforeSwapDeltaLibrary.ZERO_DELTA, fee);
     }
 
     function _afterSwap(
-        address,
-        PoolKey calldata,
-        IPoolManager.SwapParams calldata,
-        BalanceDelta,
-        bytes calldata hookData
-    ) internal override returns (bytes4, int128) {
-    // mints 1 token per swap
-        address swapper = abi.decode(hookData, (address));
-        _mint(swapper, 1 ether);
-        return (BaseHook.afterSwap.selector, 0);
+    address,
+    PoolKey calldata key,
+    IPoolManager.SwapParams calldata params,
+    BalanceDelta delta,
+    bytes calldata hookData
+) internal override returns (bytes4, int128) {
+    address swapper = abi.decode(hookData, (address));
+
+    int128 amount0Delta = BalanceDeltaLibrary.amount0(delta);
+    int128 amount1Delta = BalanceDeltaLibrary.amount1(delta);
+
+    uint256 feePaid;
+
+    if (params.zeroForOne) {
+        // User paid in token0 (input), Uniswap took fee from token0
+        uint256 userInput = uint128(uint256(-params.amountSpecified)); // exactInput
+        uint256 actualIn = uint128(uint128(-amount0Delta)); // net to pool
+        feePaid = userInput - actualIn;
+    } else {
+        // User paid in token1 (input)
+        uint256 userInput = uint128(uint256(-params.amountSpecified));
+        uint256 actualIn = uint128(uint128(-amount1Delta));
+        feePaid = userInput - actualIn;
     }
+
+    // Check against base fee: required = BASE_FEE * input / 1e6
+    // Uniswap fees are in hundred-thousandths (1e6 basis)
+    uint256 requiredFee = (uint256(uint128(uint256(-params.amountSpecified))) * BASE_FEE) / 1e6;
+
+    if (feePaid >= requiredFee) {
+        _mint(swapper, 1 ether);
+    }
+
+    return (BaseHook.afterSwap.selector, 0);
+}
+
     // checks if swapper has free swaps left
     function _getFee(
         bytes calldata hookData
