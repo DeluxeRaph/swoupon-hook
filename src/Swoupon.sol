@@ -66,6 +66,7 @@ contract Swoupon is BaseHook, ERC20 {
         override
         returns (bytes4, BeforeSwapDelta, uint24)
     { // we need to pull the amount of tokens a user will be paying in fees
+    // check if user has membership nft.
         fee = _getFee(hookData);
         poolManager.updateDynamicLPFee(key, fee); // this where I need to pull the fee from the deposit
         return (BaseHook.beforeSwap.selector, BeforeSwapDeltaLibrary.ZERO_DELTA, fee);
