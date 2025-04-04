@@ -76,13 +76,4 @@ This hook uses the following Uniswap V4 lifecycle flags:
 
 ---
 
-### 🌱 Developer Token Reward Logic
-
-If the swap fee exceeds a threshold, this hook mints a `$SP` token:
-
-```solidity
-if (swapFee > n) {
-    mint(1 $SP);
-}
-```
 
