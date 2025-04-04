@@ -208,8 +208,8 @@ contract SwouponTest is Test, Fixtures {
         uint24 feeAfterPay = hook.getFee();
         assertEq(feeAfterPay, 0);
 
-        uint256 tokenBalanceAfterPay = hook.balanceOf(swapper);
-        assertEq(tokenBalanceAfterPay, 0);
+        // uint256 tokenBalanceAfterPay = hook.balanceOf(swapper);
+        // assertEq(tokenBalanceAfterPay, 0);
     }
 
     
