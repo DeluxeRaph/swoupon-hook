@@ -25,12 +25,6 @@ The Swoupon system consists of two main components:
 
 - `SwoopPon.sol`: Main contract that implements the Uniswap V4 hook interface, handles token rewards and deposits.
 
-## Getting Started
-
-### Prerequisites
-
-![Flowchart](./images/zero_fee_conditional_flow.jpg)
-
 ### 💡 Hook Logic Overview
 
 ```mermaid
