@@ -28,17 +28,23 @@ The Swoupon system consists of two main components:
 ### 💡 Hook Logic Overview
 
 ```mermaid
-flowchart TD
-    Start[Start Swap] --> Before[beforeSwap]
-    Before --> Check[Did Swapper deposit tokens?]
-    Check -->|True| ZeroFee[swapFee = 0 for single swap]
-    Check -->|False| Swap
-    Check --> DevWallet[Dev Wallet]
-    ZeroFee --> Swap
-    Swap --> After[afterSwap]
-    After -->|swapFee > n| Mint[mint 1 $SP]
-    Mint --> End[End Swap]
-    After -->|else| End
+flowchart LR
+    start["Start Swap"] --> beforeSwap["beforeSwap"]
+    beforeSwap --> deposit{"Did Swapper deposit tokens?"}
+    
+    deposit -->|"True"| fee["swapFee = 0 for single swap"]
+    fee --> swap["Swap"]
+    deposit -->|"False"| swap
+    deposit -->|"Read"| devWallet[("Dev Wallet\naddress => uint256")]
+    
+    swap --> afterSwap["afterSwap"]
+    afterSwap --> feeCheck{"swapFee > n"}
+    
+    feeCheck -->|"True"| mintSP["mint 1 $SP"]
+    mintSP --> swapper(["Swapper"])
+    mintSP --> endSwap["End Swap"]
+    
+    feeCheck -->|"False"| endSwap
 ```
 
 ---
