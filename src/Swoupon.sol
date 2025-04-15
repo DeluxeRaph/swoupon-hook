@@ -2,7 +2,6 @@
 pragma solidity ^0.8.24;
 
 import {BaseHook} from "v4-periphery/src/utils/BaseHook.sol";
-
 import {Hooks} from "v4-core/src/libraries/Hooks.sol";
 import {IPoolManager} from "v4-core/src/interfaces/IPoolManager.sol";
 import {PoolKey} from "v4-core/src/types/PoolKey.sol";
@@ -11,7 +10,7 @@ import {BalanceDelta} from "v4-core/src/types/BalanceDelta.sol";
 import {BeforeSwapDelta, BeforeSwapDeltaLibrary} from "v4-core/src/types/BeforeSwapDelta.sol";
 import {ERC20} from "solmate/src/tokens/ERC20.sol";
 import {LPFeeLibrary} from "v4-core/src/libraries/LPFeeLibrary.sol";
-
+import {IMsgSender} from "./interfaces/IMsgSender.sol";
 //Welcome to Swoupon.
 //after 10 swaps earn a feeless swap.
 contract Swoupon is BaseHook, ERC20 {
@@ -21,7 +20,10 @@ contract Swoupon is BaseHook, ERC20 {
     uint24 public fee = 3000;
     uint24 public constant BASE_FEE = 10000; // 0.1%
 
+    address swapper = address(0);
+
     mapping(address => uint256) public freeSwapCount;
+    mapping(address => bool) public verifiedRouters;
 
     error NotDynamicFee();
 
@@ -63,12 +65,16 @@ contract Swoupon is BaseHook, ERC20 {
         return this.afterInitialize.selector;
     }
 
-    function _beforeSwap(address, PoolKey calldata key, IPoolManager.SwapParams calldata, bytes calldata hookData)
+    function _beforeSwap(address sender, PoolKey calldata key, IPoolManager.SwapParams calldata, bytes calldata)
         internal
         override
         returns (bytes4, BeforeSwapDelta, uint24)
-    { // we need to pull the amount of tokens a user will be paying in fees
-        fee = _getFee(hookData);
+    { 
+        if (verifiedRouters[sender]) {
+        swapper = IMsgSender(sender).msgSender();
+    }
+
+        fee = _getFee();
         poolManager.updateDynamicLPFee(key, fee); // this where I need to pull the fee from the deposit
         return (BaseHook.beforeSwap.selector, BeforeSwapDeltaLibrary.ZERO_DELTA, fee);
     }
@@ -78,18 +84,19 @@ contract Swoupon is BaseHook, ERC20 {
         PoolKey calldata,
         IPoolManager.SwapParams calldata,
         BalanceDelta,
-        bytes calldata hookData
+        bytes calldata
     ) internal override returns (bytes4, int128) {
     // mints 1 token per swap
-        address swapper = abi.decode(hookData, (address));
+    if (swapper != address(0)) {
         _mint(swapper, 1 ether);
         return (BaseHook.afterSwap.selector, 0);
+    } else {
+        return (BaseHook.afterSwap.selector, 0);
+        }
     }
 
     function _getFee(
-        bytes calldata hookData
     ) internal virtual returns (uint24){
-        address swapper = abi.decode(hookData, (address));
 
         if (freeSwapCount[swapper] > 0) {
             freeSwapCount[swapper] -= 1;
@@ -108,15 +115,28 @@ contract Swoupon is BaseHook, ERC20 {
     function payForFreeSwap(
         uint256 amount
     ) public {
-        require(balanceOf[msg.sender] >= amount, "Insufficient balance");
+        require(balanceOf[swapper] >= amount, "Insufficient balance");
         require(amount >= 10 ether, "Token amount must be 10 or more");
-        transfer(address(this), amount);
-        freeSwapCount[msg.sender] += 1;
+        transfer(swapper, amount);
+        freeSwapCount[swapper] += 1;
     }
 
     function getFee() public view returns (uint24) {
         return fee;
     }
 
+    /// @notice Add a router to the trusted list
+    function addRouter(address _router) external {
+        verifiedRouters[_router] = true;
+    }
 
+/// @notice Remove a router from the trusted list
+    function removeRouter(address _router) external {
+        verifiedRouters[_router] = false;
+    }
+
+    /// @notice View if a router is verified
+    function isVerifiedRouter(address _router) external view returns (bool) {
+        return verifiedRouters[_router];
+    }
 }
