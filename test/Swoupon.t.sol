@@ -24,6 +24,7 @@ import {console2} from "forge-std/console2.sol";
 
 import {MockERC20} from "solmate/src/test/utils/mocks/MockERC20.sol";
 import {IERC20} from "forge-std/interfaces/IERC20.sol";
+
 contract SwouponTest is Test, Fixtures {
     using EasyPosm for IPositionManager;
     using PoolIdLibrary for PoolKey;
@@ -38,36 +39,31 @@ contract SwouponTest is Test, Fixtures {
     int24 tickUpper;
 
     MockERC20 token0;
-	MockERC20 token1;
+    MockERC20 token1;
     // address swapper;
 
     function setUp() public {
-        
-    deployFreshManagerAndRouters();
+        deployFreshManagerAndRouters();
 
-    swapper = address(0x123);
+        swapper = address(0x123);
 
-    // Deploy our TOKEN contract
-    token0 = new MockERC20("Test Token 0", "TEST0", 18);
-    token1 = new MockERC20("Test Token 1", "TEST1", 18);
-    
-    Currency tokenCurrency0 = Currency.wrap(address(token0));
-    Currency tokenCurrency1 = Currency.wrap(address(token1));
+        // Deploy our TOKEN contract
+        token0 = new MockERC20("Test Token 0", "TEST0", 18);
+        token1 = new MockERC20("Test Token 1", "TEST1", 18);
 
-    // Mint a bunch of TOKEN to ourselves
-    token0.mint(swapper, 1000 ether);
-    token1.mint(swapper, 1000 ether);
-    token0.mint(address(hook), 1000 ether);
-    token1.mint(address(hook), 1000 ether);
+        Currency tokenCurrency0 = Currency.wrap(address(token0));
+        Currency tokenCurrency1 = Currency.wrap(address(token1));
 
-    // Deploy hook to an address that has the proper flags set
-    uint160 flags = uint160(Hooks.AFTER_INITIALIZE_FLAG | Hooks.BEFORE_SWAP_FLAG | Hooks.AFTER_SWAP_FLAG);
+        // Mint a bunch of TOKEN to ourselves
+        token0.mint(swapper, 1000 ether);
+        token1.mint(swapper, 1000 ether);
+        token0.mint(address(hook), 1000 ether);
+        token1.mint(address(hook), 1000 ether);
 
-    deployCodeTo(
-        "Swoupon.sol",
-        abi.encode(manager, "Swoupon", "SWP"),
-        address(flags)
-    );
+        // Deploy hook to an address that has the proper flags set
+        uint160 flags = uint160(Hooks.AFTER_INITIALIZE_FLAG | Hooks.BEFORE_SWAP_FLAG | Hooks.AFTER_SWAP_FLAG);
+
+        deployCodeTo("Swoupon.sol", abi.encode(manager, "Swoupon", "SWP"), address(flags));
 
         // Deploy our hook
         hook = Swoupon(address(flags));
@@ -83,25 +79,21 @@ contract SwouponTest is Test, Fixtures {
         token1.approve(address(modifyLiquidityRouter), type(uint256).max);
         token0.approve(address(hook), type(uint256).max);
         token1.approve(address(hook), type(uint256).max);
-        
 
-    // Initialize a pool
-    (key, ) = initPool(
-        tokenCurrency0, // Currency 0 = ETH
-        tokenCurrency1, // Currency 1 = TOKEN
-        hook, // Hook Contract
-        LPFeeLibrary.DYNAMIC_FEE_FLAG, // Swap Fees
-        SQRT_PRICE_1_1 // Initial Sqrt(P) value = 1
-    );
-    
-     uint160 sqrtPriceAtTickLower = TickMath.getSqrtPriceAtTick(-60);
-     uint256 token0ToAdd = 1 ether;
-
-        uint128 liquidityDelta = LiquidityAmounts.getLiquidityForAmount0(
-            sqrtPriceAtTickLower,
-            SQRT_PRICE_1_1,
-            token0ToAdd
+        // Initialize a pool
+        (key,) = initPool(
+            tokenCurrency0, // Currency 0 = ETH
+            tokenCurrency1, // Currency 1 = TOKEN
+            hook, // Hook Contract
+            LPFeeLibrary.DYNAMIC_FEE_FLAG, // Swap Fees
+            SQRT_PRICE_1_1 // Initial Sqrt(P) value = 1
         );
+
+        uint160 sqrtPriceAtTickLower = TickMath.getSqrtPriceAtTick(-60);
+        uint256 token0ToAdd = 1 ether;
+
+        uint128 liquidityDelta =
+            LiquidityAmounts.getLiquidityForAmount0(sqrtPriceAtTickLower, SQRT_PRICE_1_1, token0ToAdd);
 
         modifyLiquidityRouter.modifyLiquidity(
             key,
@@ -120,7 +112,6 @@ contract SwouponTest is Test, Fixtures {
     }
 
     function test_swap_mint_token_and_pay_for_free_swap() public {
-
         uint256 tokenBalanceOriginal = hook.balanceOf(swapper);
         uint24 currentFee = hook.getFee();
 
@@ -129,31 +120,32 @@ contract SwouponTest is Test, Fixtures {
 
         vm.startPrank(swapper);
 
-        swap(key, true, -2 ether, ZERO_BYTES);
+        swapRouter.swap(
+             key,
+             IPoolManager.SwapParams({
+                 zeroForOne: true,
+                 amountSpecified: -0.001 ether, // Exact input for output swap
+                 sqrtPriceLimitX96: TickMath.getSqrtPriceAtTick(-60) // 
+             }),
+             PoolSwapTest.TestSettings({takeClaims: false, settleUsingBurn: false}),
+             ZERO_BYTES
+         );
 
-        
         uint256 tokenBalanceAfterSwap = hook.balanceOf(swapper);
         console.log("tokenBalanceAfterSwap", tokenBalanceAfterSwap);
-        // assertEq(tokenBalanceAfterSwap, 1 ether);
+        assertEq(tokenBalanceAfterSwap, 1 ether);
 
         // // Pay for a free swap
         hook.payForFreeSwap(1 ether);
-        // hook.approve(address(hook), type(uint256).max);
-        // hook.transfer(address(this), 1 );
-        // hook.transferFrom(swapper, address(hook), 1 ether);
 
-        // //check if userhas a free swap left
-        // assertEq(hook.freeSwapCount(swapper), 1);
+        //check if userhas a free swap left
+        assertEq(hook.freeSwapCount(swapper), 1);
 
-        // swap(key, true, -2 ether, ZERO_BYTES);
+        swap(key, true, -2 ether, ZERO_BYTES);
 
         vm.stopPrank();
-
-        // uint256 tokenBalanceAfterPay = hook.balanceOf(swapper);
-        // assertEq(tokenBalanceAfterPay, 0);
+ 
+        uint256 tokenBalanceAfterPay = hook.balanceOf(swapper);
+        assertEq(tokenBalanceAfterPay, 0);
     }
-
-    
-
-
 }

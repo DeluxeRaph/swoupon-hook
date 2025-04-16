@@ -13,6 +13,7 @@ import {LPFeeLibrary} from "v4-core/src/libraries/LPFeeLibrary.sol";
 import {IMsgSender} from "./interfaces/IMsgSender.sol";
 //Welcome to Swoupon.
 //after 10 swaps earn a feeless swap.
+
 contract Swoupon is BaseHook, ERC20 {
     using PoolIdLibrary for PoolKey;
     using LPFeeLibrary for uint24;
@@ -69,35 +70,37 @@ contract Swoupon is BaseHook, ERC20 {
         internal
         override
         returns (bytes4, BeforeSwapDelta, uint24)
-    { 
+    {
         if (verifiedRouters[sender]) {
-        swapper = IMsgSender(sender).msgSender();
-    }
+            swapper = IMsgSender(sender).msgSender();
+        }
 
         fee = _getFee();
         poolManager.updateDynamicLPFee(key, fee); // this where I need to pull the fee from the deposit
         return (BaseHook.beforeSwap.selector, BeforeSwapDeltaLibrary.ZERO_DELTA, fee);
     }
 
-    function _afterSwap(
-        address,
-        PoolKey calldata,
-        IPoolManager.SwapParams calldata,
-        BalanceDelta,
-        bytes calldata
-    ) internal override returns (bytes4, int128) {
-    // mints 1 token per swap
-    if (swapper != address(0)) {
+    function _afterSwap(address, PoolKey calldata, IPoolManager.SwapParams calldata, BalanceDelta, bytes calldata)
+        internal
+        override
+        returns (bytes4, int128)
+    {
+        // mints 1 token per swap
+        if (swapper == address(0)) {
+            return (BaseHook.afterSwap.selector, 0);
+        }
+
+        // check if fee is 0 and if so don't mint
+        if (fee == 0) {
+            return (BaseHook.afterSwap.selector, 0);
+        }
+        
         _mint(swapper, 1 ether);
         return (BaseHook.afterSwap.selector, 0);
-    } else {
-        return (BaseHook.afterSwap.selector, 0);
-        }
+        
     }
 
-    function _getFee(
-    ) internal virtual returns (uint24){
-
+    function _getFee() internal virtual returns (uint24) {
         if (freeSwapCount[swapper] > 0) {
             freeSwapCount[swapper] -= 1;
             _setFee(0);
@@ -112,9 +115,7 @@ contract Swoupon is BaseHook, ERC20 {
     }
 
     // Swapper pays 1 swoupon tokens to get 1 feeless swap.
-    function payForFreeSwap(
-        uint256 amount
-    ) public {
+    function payForFreeSwap(uint256 amount) public {
         require(balanceOf[swapper] >= amount, "Insufficient balance");
         require(amount >= 1 ether, "Token amount must be 1 or more");
         transfer(address(this), amount);
@@ -130,7 +131,7 @@ contract Swoupon is BaseHook, ERC20 {
         verifiedRouters[_router] = true;
     }
 
-/// @notice Remove a router from the trusted list
+    /// @notice Remove a router from the trusted list
     function removeRouter(address _router) external {
         verifiedRouters[_router] = false;
     }
