@@ -111,13 +111,13 @@ contract Swoupon is BaseHook, ERC20 {
         fee = _fee;
     }
 
-    // Swapper pays 10 swoupon tokens to get 1 feeless swap.
+    // Swapper pays 1 swoupon tokens to get 1 feeless swap.
     function payForFreeSwap(
         uint256 amount
     ) public {
         require(balanceOf[swapper] >= amount, "Insufficient balance");
-        require(amount >= 10 ether, "Token amount must be 10 or more");
-        transfer(swapper, amount);
+        require(amount >= 1 ether, "Token amount must be 1 or more");
+        transfer(address(this), amount);
         freeSwapCount[swapper] += 1;
     }
 

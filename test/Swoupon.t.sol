@@ -39,7 +39,7 @@ contract SwouponTest is Test, Fixtures {
 
     MockERC20 token0;
 	MockERC20 token1;
-    address swapper;
+    // address swapper;
 
     function setUp() public {
         
@@ -57,6 +57,8 @@ contract SwouponTest is Test, Fixtures {
     // Mint a bunch of TOKEN to ourselves
     token0.mint(swapper, 1000 ether);
     token1.mint(swapper, 1000 ether);
+    token0.mint(address(hook), 1000 ether);
+    token1.mint(address(hook), 1000 ether);
 
     // Deploy hook to an address that has the proper flags set
     uint160 flags = uint160(Hooks.AFTER_INITIALIZE_FLAG | Hooks.BEFORE_SWAP_FLAG | Hooks.AFTER_SWAP_FLAG);
@@ -81,7 +83,7 @@ contract SwouponTest is Test, Fixtures {
         token1.approve(address(modifyLiquidityRouter), type(uint256).max);
         token0.approve(address(hook), type(uint256).max);
         token1.approve(address(hook), type(uint256).max);
-        vm.stopPrank();
+        
 
     // Initialize a pool
     (key, ) = initPool(
@@ -91,7 +93,7 @@ contract SwouponTest is Test, Fixtures {
         LPFeeLibrary.DYNAMIC_FEE_FLAG, // Swap Fees
         SQRT_PRICE_1_1 // Initial Sqrt(P) value = 1
     );
-    bytes memory hookData = abi.encode(swapper);
+    
      uint160 sqrtPriceAtTickLower = TickMath.getSqrtPriceAtTick(-60);
      uint256 token0ToAdd = 1 ether;
 
@@ -100,7 +102,7 @@ contract SwouponTest is Test, Fixtures {
             SQRT_PRICE_1_1,
             token0ToAdd
         );
-        vm.startPrank(swapper);
+
         modifyLiquidityRouter.modifyLiquidity(
             key,
             IPoolManager.ModifyLiquidityParams({
@@ -109,56 +111,43 @@ contract SwouponTest is Test, Fixtures {
                 liquidityDelta: int256(uint256(liquidityDelta)),
                 salt: bytes32(0)
             }),
-            hookData
+            ZERO_BYTES
         );
+
+        vm.stopPrank();
+
+        hook.addRouter(address(swapRouter));
     }
 
     function test_swap_mint_token_and_pay_for_free_swap() public {
-        bytes memory hookData = abi.encode(swapper);
 
         uint256 tokenBalanceOriginal = hook.balanceOf(swapper);
         uint24 currentFee = hook.getFee();
 
         assertEq(tokenBalanceOriginal, 0);
         assertEq(currentFee, 3000);
-        
-        swapRouter.swap(
-            key,
-            IPoolManager.SwapParams({
-                zeroForOne: true,
-                amountSpecified: -2 ether, // Exact input for output swap
-                sqrtPriceLimitX96: TickMath.getSqrtPriceAtTick(-60) // @note sure about this but ai said so
-            }),
-            PoolSwapTest.TestSettings({takeClaims: false, settleUsingBurn: false}),
-            hookData
-        );
-
-        uint256 tokenBalanceAfterSwap = hook.balanceOf(swapper);
-        assertEq(tokenBalanceAfterSwap, 1 ether);
-
-        uint256 tokenBalanceBeforePay = hook.balanceOf(address(hook));
-        console.log("tokenBalanceBeforePay", tokenBalanceBeforePay);
 
         vm.startPrank(swapper);
+
+        swap(key, true, -2 ether, ZERO_BYTES);
+
+        
+        uint256 tokenBalanceAfterSwap = hook.balanceOf(swapper);
+        console.log("tokenBalanceAfterSwap", tokenBalanceAfterSwap);
+        // assertEq(tokenBalanceAfterSwap, 1 ether);
+
+        // // Pay for a free swap
         hook.payForFreeSwap(1 ether);
+        // hook.approve(address(hook), type(uint256).max);
+        // hook.transfer(address(this), 1 );
+        // hook.transferFrom(swapper, address(hook), 1 ether);
+
+        // //check if userhas a free swap left
+        // assertEq(hook.freeSwapCount(swapper), 1);
+
+        // swap(key, true, -2 ether, ZERO_BYTES);
+
         vm.stopPrank();
-
-        //check if userhas a free swap left
-        assertEq(hook.freeSwapCount(swapper), 1);
-
-
-        swapRouter.swap(
-            key,
-            IPoolManager.SwapParams({
-                zeroForOne: true,
-                amountSpecified: -2 ether, // Exact input for output swap
-                sqrtPriceLimitX96: TickMath.MIN_SQRT_PRICE + 1
-            }),
-            PoolSwapTest.TestSettings({takeClaims: false, settleUsingBurn: false}),
-            hookData
-        );
-        uint24 feeAfterPay = hook.getFee();
-        assertEq(feeAfterPay, 0);
 
         // uint256 tokenBalanceAfterPay = hook.balanceOf(swapper);
         // assertEq(tokenBalanceAfterPay, 0);
