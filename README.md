@@ -25,7 +25,7 @@ The Swoupon system consists of two main components:
 
 - `SwoopPon.sol`: Main contract that implements the Uniswap V4 hook interface, handles token rewards and deposits.
 
-### 💡 Hook Logic Overview
+### Hook Logic Overview
 
 ```mermaid
 flowchart LR
@@ -49,7 +49,7 @@ flowchart LR
 
 ---
 
-### 🧩 Conditional Logic
+### Conditional Logic
 
 This hook uses conditional logic to determine fee behavior:
 
@@ -71,8 +71,8 @@ If so, a reward token (`$SP`) is minted.
 
 This hook uses the following Uniswap V4 lifecycle flags:
 
-- ✅ `beforeSwap`
-- ✅ `afterSwap`
+- `beforeSwap`
+- `afterSwap`
 
 ---
 
