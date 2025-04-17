@@ -71,8 +71,7 @@ contract SwouponTest is Test, Fixtures {
         // Approve our TOKEN for spending on the swap router and modify liquidity router
         // These variables are coming from the `Deployers` contract
         vm.startPrank(swapper);
-        // token0.approve(address(this), type(uint256).max);
-        // token1.approve(address(this), type(uint256).max);
+       
         token0.approve(address(swapRouter), type(uint256).max);
         token1.approve(address(swapRouter), type(uint256).max);
         token0.approve(address(modifyLiquidityRouter), type(uint256).max);
@@ -111,7 +110,7 @@ contract SwouponTest is Test, Fixtures {
         hook.addRouter(address(swapRouter));
     }
 
-    function test_swap_mint_token_and_pay_for_free_swap() public {
+    function test_redeemSwap() public {
         uint256 tokenBalanceOriginal = hook.balanceOf(swapper);
         uint24 currentFee = hook.getFee();
 
@@ -128,18 +127,17 @@ contract SwouponTest is Test, Fixtures {
                  sqrtPriceLimitX96: TickMath.getSqrtPriceAtTick(-60) // 
              }),
              PoolSwapTest.TestSettings({takeClaims: false, settleUsingBurn: false}),
-             ZERO_BYTES
+             ZERO_BYTES // Hook data
          );
 
         uint256 tokenBalanceAfterSwap = hook.balanceOf(swapper);
-        console.log("tokenBalanceAfterSwap", tokenBalanceAfterSwap);
         assertEq(tokenBalanceAfterSwap, 1 ether);
 
         // // Pay for a free swap
-        hook.payForFreeSwap(1 ether);
+        hook.redeemSwap(1 ether);
 
         //check if userhas a free swap left
-        assertEq(hook.freeSwapCount(swapper), 1);
+        assertEq(hook.redeemCount(swapper), 1);
 
         swap(key, true, -2 ether, ZERO_BYTES);
 

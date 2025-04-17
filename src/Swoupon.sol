@@ -23,7 +23,7 @@ contract Swoupon is BaseHook, ERC20 {
 
     address swapper = address(0);
 
-    mapping(address => uint256) public freeSwapCount;
+    mapping(address => uint256) public redeemCount;
     mapping(address => bool) public verifiedRouters;
 
     error NotDynamicFee();
@@ -71,6 +71,8 @@ contract Swoupon is BaseHook, ERC20 {
         override
         returns (bytes4, BeforeSwapDelta, uint24)
     {
+        // @note does router safe from reentrancy on the msgSender?
+        // if sender is verified router, set swapper to the msgSender
         if (verifiedRouters[sender]) {
             swapper = IMsgSender(sender).msgSender();
         }
@@ -100,9 +102,10 @@ contract Swoupon is BaseHook, ERC20 {
         
     }
 
+    // Checks if swapper has a free swap left and sets the fee accordingly
     function _getFee() internal virtual returns (uint24) {
-        if (freeSwapCount[swapper] > 0) {
-            freeSwapCount[swapper] -= 1;
+        if (redeemCount[swapper] > 0) {
+            redeemCount[swapper] -= 1;
             _setFee(0);
         } else {
             _setFee(BASE_FEE);
@@ -110,21 +113,26 @@ contract Swoupon is BaseHook, ERC20 {
         return fee;
     }
 
-    function _setFee(uint24 _fee) internal {
-        fee = _fee;
-    }
-
-    // Swapper pays 1 swoupon tokens to get 1 feeless swap.
-    function payForFreeSwap(uint256 amount) public {
+    // Swapper pays n swoupon tokens to get 1 feeless swap.
+    function redeemSwap(uint256 amount) public {
         require(balanceOf[swapper] >= amount, "Insufficient balance");
         require(amount >= 1 ether, "Token amount must be 1 or more");
+        
         transfer(address(this), amount);
-        freeSwapCount[swapper] += 1;
+        redeemCount[swapper] += amount;
     }
 
     function getFee() public view returns (uint24) {
         return fee;
     }
+
+    function _setFee(uint24 _fee) internal {
+        fee = _fee;
+    }
+
+    ///////////////////////
+    ///// Router Stuff/////
+    ///////////////////////
 
     /// @notice Add a router to the trusted list
     function addRouter(address _router) external {
