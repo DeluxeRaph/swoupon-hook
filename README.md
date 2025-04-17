@@ -19,7 +19,7 @@ The Swoupon system consists of two main components:
 
 - **Dynamic Fee Adjustment**: The system can dynamically adjust fees based on user balances.
 - **Reward Mechanism**: Rewards users with tokens for participating in swaps.
-- **Price Oracle Integration**: Uses Chainlink price feeds for ETH and BTC.
+- **Price Oracle Integration**: TBD
 
 ## Contract Structure
 
