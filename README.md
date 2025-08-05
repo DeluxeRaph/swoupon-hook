@@ -1,4 +1,4 @@
-# Swoupon: Liquidity Rewards System
+# Swoupon: Swap Rewards System
 
 Swoupon is a uniswap v4 hook swapping rewards mechanism. It allows swapper to accumulate Swoupon tokens through swaps, which can later be redeemed for fee discounts.
 
